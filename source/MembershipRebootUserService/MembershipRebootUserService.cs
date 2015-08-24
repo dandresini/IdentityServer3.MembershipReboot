@@ -156,7 +156,9 @@ namespace Thinktecture.IdentityServer.MembershipReboot
 
         protected virtual Task<IEnumerable<Claim>> GetClaimsForAuthenticateResult(TAccount account)
         {
-            return Task.FromResult((IEnumerable<Claim>)null);
+
+
+            return Task.FromResult(account.Claims.Select(t => new Claim(t.Type, t.Value)).AsEnumerable<Claim>());
         }
 
         public virtual async Task<AuthenticateResult> AuthenticateExternalAsync(ExternalIdentity externalUser, SignInMessage message)
@@ -219,15 +221,24 @@ namespace Thinktecture.IdentityServer.MembershipReboot
 
         protected virtual async Task<AuthenticateResult> SignInFromExternalProviderAsync(Guid accountID, string provider)
         {
+            return await SignInFromExternalProviderAsync(accountID,provider,null);
+        }
+
+        protected virtual async Task<AuthenticateResult> SignInFromExternalProviderAsync(Guid accountID, string provider,IEnumerable<Claim> claims_to_add)
+        {
             var account = userAccountService.GetByID(accountID);
             var claims = await GetClaimsForAuthenticateResult(account);
-            
+            if (claims_to_add != null)
+            {
+                claims= (claims != null)?claims=claims.Concat(claims_to_add):claims_to_add;
+            }
             return new AuthenticateResult(
                 subject: accountID.ToString("D"),
                 name: GetDisplayNameForAccount(accountID),
                 claims:claims,
                 identityProvider: provider,
                 authenticationMethod: IdentityServer.Core.Constants.AuthenticationMethods.External);
+            
         }
 
         protected virtual Task<AuthenticateResult> UpdateAccountFromExternalClaimsAsync(Guid accountID, string provider, string providerId, IEnumerable<Claim> claims)
@@ -238,7 +249,7 @@ namespace Thinktecture.IdentityServer.MembershipReboot
 
         protected virtual async Task<AuthenticateResult> ProcessExistingExternalAccountAsync(Guid accountID, string provider, string providerId, IEnumerable<Claim> claims)
         {
-            return await SignInFromExternalProviderAsync(accountID, provider);
+            return await SignInFromExternalProviderAsync(accountID, provider,claims);
         }
 
         protected virtual void SetAccountEmail(Guid accountID, ref IEnumerable<Claim> claims)
